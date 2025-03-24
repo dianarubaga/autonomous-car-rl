@@ -5,7 +5,7 @@ from tensorflow.keras.losses import MeanSquaredError
 custom_objects = {"mse": MeanSquaredError()}  # Fix for missing loss function
 
 # Load the model using custom_objects
-model_path = "/Users/dianarubaga/Desktop/RLI_17_A0/dqn_model.h5"  # Ensure this path is correct
+model_path = "dqn_models/dqn_model.h5"
 
 try:
     model = load_model(model_path, custom_objects=custom_objects)

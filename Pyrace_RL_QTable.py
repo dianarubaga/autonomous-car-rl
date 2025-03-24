@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg') # to avoid some "memory" errors with TkAgg backend
 import matplotlib.pyplot as plt
+import pygame
 
 import gymnasium as gym
 import gym_race
@@ -21,20 +22,20 @@ VERSION_NAME = 'QT_v02' # the name for our model
 REPORT_EPISODES  = 500 # report (plot) every...
 DISPLAY_EPISODES = 100 # display live game every...
 
-def simulate(learning=True,episode_start=0): # LEARN
+def simulate(learning=True, episode_start=0):  # LEARN
     global q_table
     learning_rate = get_learning_rate(episode_start)
-    explore_rate  = get_explore_rate(episode_start)
+    explore_rate = get_explore_rate(episode_start)
     discount_factor = DISCOUNT_FACTOR
     total_reward = 0
     total_rewards = []
     training_done = False
     threshold = 1000
-    
+
     max_reward = -10_000
     env.set_view(True)
 
-    for episode in range(episode_start, NUM_EPISODES+episode_start):
+    for episode in range(episode_start, NUM_EPISODES + episode_start):
 
         if episode > 0:
             total_rewards.append(total_reward)
@@ -42,41 +43,50 @@ def simulate(learning=True,episode_start=0): # LEARN
             if learning and episode % REPORT_EPISODES == 0:
                 plt.plot(total_rewards)
                 plt.ylabel('rewards')
-                # plt.show()
                 plt.show(block=False)
                 plt.pause(4.0)
                 file = f'models_{VERSION_NAME}/memory_{episode}'
                 env.save_memory(file)
                 file = f'models_{VERSION_NAME}/q_table_{episode}'
-                # print(q_table) # homogeneus types
                 data = q_table
-                if data.shape[0] == 11: # q_table
-                    print('max min',data.max(),data.min(), 'total', data.sum())
+                if data.shape[0] == 11:  # q_table
+                    print('max min', data.max(), data.min(), 'total', data.sum())
                     print('zeros', np.count_nonzero(data == 0), 'total', data.size)
 
-                np.save(file,q_table)
-                print(file,'saved')
-                plt.close() # to avoid memory errors...
+                np.save(file, q_table)
+                print(file, 'saved')
+                plt.close()  # to avoid memory errors...
 
         obv, _ = env.reset()
         state_0 = state_to_bucket(obv)
         total_reward = 0
         if not learning:
-            env.pyrace.mode = 2 # continuous display of game
+            env.pyrace.mode = 2  # continuous display of game
 
         if episode >= threshold:
             explore_rate = 0.01
 
         for t in range(MAX_T):
+            # Handle quitting events
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:  # Window close button
+                    print("🚪 Exiting game...")
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:  # ESC key
+                    print("🚪 Exiting game...")
+                    pygame.quit()
+                    sys.exit()
+
             action = select_action(state_0, explore_rate if learning else 0)
             obv, reward, done, _, info = env.step(action)
             print("INFO:", info)  # ✅ Print `info` to check available data
             state = state_to_bucket(obv)
             if sum(obv) != sum(state):
-                print('WARNING',obv,state)
+                print('WARNING', obv, state)
             env.remember(state_0, action, reward, state, done)
             total_reward += reward
-            
+
             if learning:
                 # Update the Q based on the result
                 best_q = np.amax(q_table[state])
@@ -84,34 +94,23 @@ def simulate(learning=True,episode_start=0): # LEARN
 
             # Setting up for the next iteration
             state_0 = state
-            
+
             if (episode % DISPLAY_EPISODES == 0) or (env.pyrace.mode == 2):
-                """
-                env.render(msgs=['SIMULATE',
-                                 f'Episode: {episode}',
-                                 f'Time steps: {t}',
-                                 f'check: {info["check"]}',
-                                 f'dist: {info["dist"]}',
-                                 f'crash: {info["crash"]}',
-                                 f'Reward: {total_reward:.0f}',
-                                 f'Max Reward: {max_reward:.0f}'])
-                """
                 env.set_msgs(['SIMULATE',
-                            f'Episode: {episode}',
-                            f'Time steps: {t}',
-                            f'check: {info["check"]}',
-                            f'dist: {info["dist"]}',
-                            f'crash: {info["crash"]}',
-                            f'Reward: {total_reward:.0f}',
-                            f'Max Reward: {max_reward:.0f}'])
+                              f'Episode: {episode}',
+                              f'Time steps: {t}',
+                              f'check: {info["check"]}',
+                              f'dist: {info["dist"]}',
+                              f'crash: {info["crash"]}',
+                              f'Reward: {total_reward:.0f}',
+                              f'Max Reward: {max_reward:.0f}'])
                 env.render()
             if done or t >= MAX_T - 1:
-                if total_reward > max_reward: max_reward = total_reward
-                # print("SIMULATE: Episode %d finished after %i time steps with total reward = %f."
-                #      % (episode, t, total_reward))
+                if total_reward > max_reward:
+                    max_reward = total_reward
                 break
         # Update parameters
-        explore_rate  = get_explore_rate(episode)
+        explore_rate = get_explore_rate(episode)
         learning_rate = get_learning_rate(episode)
 
 def load_and_play(episode, learning=False):
@@ -210,8 +209,8 @@ if __name__ == "__main__":
     STATE_BOUNDS = list(zip(env.observation_space.low, env.observation_space.high))
     print(NUM_BUCKETS,NUM_ACTIONS,STATE_BOUNDS)
     """
-    (11, 11, 11, 11, 11) 
-    3 
+    (11, 11, 11, 11, 11)
+    3
     [(0, 10), (0, 10), (0, 10), (0, 10), (0, 10)]
     """
     MIN_EXPLORE_RATE  = 0.001
