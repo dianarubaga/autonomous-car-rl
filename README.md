@@ -25,17 +25,20 @@ The DQN uses a fully connected neural network with:
 2. **Experience Replay (ReplayMemory Class)**
 ```python
 class ReplayMemory:
-    def __init__(self, capacity):
-        self.memory = deque(maxlen=capacity)
+    def __init__(self):
+        self.memory = []
 
     def push(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
 
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)
+
+    def __len__(self):
+        return len(self.memory)
 ```
 The implementation uses experience replay to:
-- Store transitions (state, action, reward, next_state, done) in a fixed-size memory
+- Store transitions (state, action, reward, next_state, done) in memory
 - Sample random batches for training to break temporal correlations
 - Improve learning stability by reusing past experiences
 
@@ -95,20 +98,37 @@ lr             = 1e-3
 epsilon        = 1.0
 epsilon_min    = 0.01
 epsilon_decay  = 0.995
-memory_capacity= 10000
 batch_size     = 64
 ```
 The implementation uses standard DQN hyperparameters:
 - Discount factor (gamma) of 0.99
 - Learning rate of 0.001
 - Epsilon decay from 1.0 to 0.01
-- Replay memory capacity of 10,000 transitions
 - Training batch size of 64
 
-5. **Model Persistence**
-The implementation includes functionality to:
-- Save the model periodically during training
-- Save the best performing model when reaching a target reward
-- Load previously trained models for testing or continued training
+5. **Model Persistence and Testing**
+The implementation includes sophisticated model management and testing capabilities:
 
-This implementation follows the core DQN principles from the original DeepMind paper, including experience replay and fixed Q-targets, while adding practical features like model saving/loading and visualization capabilities.
+a) **Model Saving and Loading**:
+- Saves models periodically during training
+- Saves the best performing model when reaching a target reward
+- Loads previously trained models for testing or continued training
+
+b) **Perfect Model Testing**:
+- Includes a `test_perfect_model()` function to validate model performance
+- Tests potential perfect models with rendering before saving them
+- Automatically switches to best mode after finding a perfect model
+
+c) **Best Mode Operation**:
+- Can run in best mode with pure exploitation (epsilon = 0)
+- Provides continuous visualization of the agent's performance
+- Allows for indefinite testing until user termination
+
+6. **Additional Features**
+- Robust error handling for model loading and saving
+- Automatic fallback to training mode if no model is found
+- Smooth visualization with controlled frame rates
+- User-friendly controls (ESC to exit)
+- Comprehensive logging of training progress and model performance
+
+This implementation follows the core DQN principles from the original DeepMind paper, including experience replay and fixed Q-targets, while adding practical features for model validation, testing, and visualization.
