@@ -111,6 +111,42 @@ def check_best_model_exists(save_dir):
     best_files = glob.glob(os.path.join(save_dir, "dqn_*_best.pth"))
     return len(best_files) > 0
 
+def test_perfect_model(env, agent, target_reward):
+    """Test a model with rendering to ensure it can complete the circuit perfectly."""
+    print("Testing model with rendering...")
+    state, _ = env.reset()
+    state = np.array(state, dtype=np.float32)
+    total_reward = 0
+    perfect = True
+
+    for t in range(2000):  # Use the same max_t as training
+        action = agent.select_action(state)
+        next_state, reward, done, _, info = env.step(action)
+        next_state = np.array(next_state, dtype=np.float32)
+
+        # Always render during testing
+        env.set_msgs([
+            f'Testing perfect model',
+            f'Time step: {t}',
+            f'Reward: {total_reward:.0f}'
+        ])
+        env.render()
+
+        state = next_state
+        total_reward += reward
+
+        # Check for exit events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                return False, total_reward
+
+        if done:
+            break
+
+    # Check if the model completed the circuit with perfect reward
+    perfect = total_reward >= target_reward
+    return perfect, total_reward
+
 def main(best_mode=False, target_reward=10000):
     # Create the environment.
     env = gym.make("Pyrace-v1").unwrapped
@@ -224,16 +260,24 @@ def main(best_mode=False, target_reward=10000):
 
             # Check if target reward is achieved
             if total_reward >= target_reward:
-                best_model_path = os.path.join(save_dir, f"dqn_{episode}_best.pth")
-                best_memory_path = os.path.join(save_dir, f"memory_{episode}_best.npy")
-                torch.save(agent.policy_net.state_dict(), best_model_path)
-                np.save(best_memory_path, np.array(agent.memory.memory, dtype=object))
-                print(f"Target reward achieved at episode {episode} with reward {total_reward}.")
-                print(f"Saved best model to {best_model_path} and memory to {best_memory_path}.")
-                # After saving the best model, run main again with best_mode=True
-                env.close()
-                main(best_mode=True, target_reward=target_reward)
-                return
+                print(f"Potential perfect model found with reward {total_reward}. Testing with rendering...")
+
+                # Test the model with rendering
+                perfect, test_reward = test_perfect_model(env, agent, target_reward)
+
+                if perfect:
+                    best_model_path = os.path.join(save_dir, f"dqn_{episode}_best.pth")
+                    best_memory_path = os.path.join(save_dir, f"memory_{episode}_best.npy")
+                    torch.save(agent.policy_net.state_dict(), best_model_path)
+                    np.save(best_memory_path, np.array(agent.memory.memory, dtype=object))
+                    print(f"Perfect model confirmed! Saved to {best_model_path} and memory to {best_memory_path}.")
+                    # After saving the best model, run main again with best_mode=True
+                    env.close()
+                    main(best_mode=True, target_reward=target_reward)
+                    return
+                else:
+                    print(f"Model failed perfect test with reward {test_reward}. Continuing training...")
+                    # Continue training without saving the model
         else:
             print(f"Best Mode Episode {episode} Total Reward: {total_reward}")
 
