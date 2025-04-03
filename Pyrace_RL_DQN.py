@@ -107,13 +107,7 @@ class DQNAgent:
 # -------------------------------
 # Main Loop: Training / Testing / Best Mode
 # -------------------------------
-def main():
-    # Modes and parameters:
-    TRAINING_MODE = True
-    BEST_MODE = True             # If True, train until TARGET_REWARD is achieved.
-    TARGET_REWARD = 10000
-    #LOAD_LATEST = True
-
+def main(training_mode=True, best_mode=True, target_reward=10000):
     # Create the environment.
     env = gym.make("Pyrace-v1").unwrapped
 
@@ -141,7 +135,7 @@ def main():
 
     # Check for existing best files.
     best_files = glob.glob(os.path.join(save_dir, "dqn_*_best.pth"))
-    if BEST_MODE and best_files:
+    if best_mode and best_files:
         best_episodes = []
         for file in best_files:
             basename = os.path.basename(file)
@@ -160,11 +154,11 @@ def main():
             agent.memory.memory = deque(loaded_memory.tolist(), maxlen=memory_capacity)
             print(f"Best model and memory found. Loaded {best_model_path} and {best_memory_path}.")
             print("Running the car game with the best model in test mode.")
-            TRAINING_MODE = False  # Switch to test mode.
+            training_mode = False  # Switch to test mode.
             start_episode = best_episode
 
     # For non-training (test) mode, force the agent to act greedily.
-    if not TRAINING_MODE:
+    if not training_mode:
         agent.epsilon = 0.0
         print("Running in test (non-training) mode. The game will be displayed continuously.")
 
@@ -183,7 +177,7 @@ def main():
             next_state, reward, done, _, info = env.step(action)
             next_state = np.array(next_state, dtype=np.float32)
 
-            if TRAINING_MODE:
+            if training_mode:
                 agent.store_transition(state, action, reward, next_state, done)
                 agent.train_step(batch_size)
 
@@ -191,7 +185,7 @@ def main():
             total_reward += reward
 
             # Always render the game in test mode; in training mode, render every 100 episodes.
-            if not TRAINING_MODE or episode % 100 == 0:
+            if not training_mode or episode % 100 == 0:
                 env.set_msgs([
                     f'Episode: {episode}',
                     f'Time step: {t}',
@@ -212,21 +206,21 @@ def main():
 
         rewards_list.append(total_reward)
 
-        if TRAINING_MODE:
+        if training_mode:
             agent.update_epsilon()
             print(f"Episode {episode} Total Reward: {total_reward} Epsilon: {agent.epsilon:.3f}")
             episode += 1  # Only increment episode counter in training mode
 
-            # Save periodically if not in BEST_MODE.
-            if not BEST_MODE and episode % 200 == 0 and episode != 0:
+            # Save periodically if not in best_mode.
+            if not best_mode and episode % 200 == 0 and episode != 0:
                 periodic_model_path = os.path.join(save_dir, f"dqn_{episode}.pth")
                 torch.save(agent.policy_net.state_dict(), periodic_model_path)
                 periodic_memory_path = os.path.join(save_dir, f"memory_{episode}.npy")
                 np.save(periodic_memory_path, np.array(agent.memory.memory, dtype=object))
                 print(f"Saved model and memory at episode {episode}")
 
-            # In BEST_MODE, check if the target reward is achieved.
-            if BEST_MODE and total_reward >= TARGET_REWARD:
+            # In best_mode, check if the target reward is achieved.
+            if best_mode and total_reward >= target_reward:
                 best_model_path = os.path.join(save_dir, f"dqn_{episode}_best.pth")
                 best_memory_path = os.path.join(save_dir, f"memory_{episode}_best.npy")
                 torch.save(agent.policy_net.state_dict(), best_model_path)
@@ -241,8 +235,8 @@ def main():
             print("Termination requested. Exiting...")
             break
 
-    # In training mode (if not BEST_MODE), save the final model.
-    if TRAINING_MODE and not BEST_MODE:
+    # In training mode (if not best_mode), save the final model.
+    if training_mode and not best_mode:
         final_model_path = os.path.join(save_dir, "dqn_model_final.pth")
         torch.save(agent.policy_net.state_dict(), final_model_path)
         final_memory_path = os.path.join(save_dir, "final_memory.npy")
