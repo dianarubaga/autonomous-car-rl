@@ -18,7 +18,7 @@ from collections import deque
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(DQN, self).__init__()
-        # Two hidden layers with 64 units each (adjust as needed)
+        # Two hidden layers with 64 units each
         self.fc1 = nn.Linear(input_dim, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, output_dim)
@@ -172,7 +172,8 @@ def main():
     terminate = False  # Flag for user exit.
 
     # Main loop.
-    for episode in range(start_episode, num_episodes):
+    episode = start_episode
+    while episode < num_episodes:
         state, _ = env.reset()
         state = np.array(state, dtype=np.float32)
         total_reward = 0
@@ -214,6 +215,7 @@ def main():
         if TRAINING_MODE:
             agent.update_epsilon()
             print(f"Episode {episode} Total Reward: {total_reward} Epsilon: {agent.epsilon:.3f}")
+            episode += 1  # Only increment episode counter in training mode
 
             # Save periodically if not in BEST_MODE.
             if not BEST_MODE and episode % 200 == 0 and episode != 0:
